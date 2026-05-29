@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNI Spoofing UI</title>
+    <style>
+        :root {
+            --bg-dark: #06060c;
+            --glass-bg: rgba(18, 20, 38, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.04);
+            --primary: #6366f1;
+            --primary-hover: #797cff;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.35);
+            --danger: #f43f5e;
+            --text-main: #ffffff;
+            --text-muted: #8b9bb4;
+            --input-bg: rgba(10, 11, 24, 0.6);
+            --panel-bg: rgba(10, 12, 22, 0.9);
+            --widget-bg: rgba(255, 255, 255, 0.02);
+            --widget-border: rgba(255, 255, 255, 0.04);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            margin: 0;
+        }
+
+        .ambient-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .blob-indigo {
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, transparent 70%);
+            top: -20px;
+            left: -20px;
+            animation: float-slow 12s infinite alternate ease-in-out;
+        }
+
+        .blob-emerald {
+            width: 220px;
+            height: 220px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
+            bottom: -30px;
+            right: -30px;
+            animation: float-slow 16s infinite alternate-reverse ease-in-out;
+        }
+
+        .blob-pink {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, transparent 70%);
+            top: 40%;
+            left: 30%;
+            animation: float-slow 20s infinite alternate ease-in-out;
+        }
+
+        @keyframes float-slow {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(25px, -15px) scale(1.15); }
+            100% { transform: translate(-10px, 20px) scale(0.9); }
+        }
+
+        .app-container {
+            width: 100vw;
+            height: 100vh;
+            background: var(--glass-bg);
+            backdrop-filter: blur(30px) saturate(160%);
+            -webkit-backdrop-filter: blur(30px) saturate(160%);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--glass-highlight);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title-bar {
+            height: 44px;
+            background: rgba(8, 8, 16, 0.45);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 14px;
+            z-index: 100;
+            user-select: none;
+        }
+
+        .title-bar-drag {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: move;
+        }
+
+        .title-bar-drag svg {
+            color: var(--primary);
+            filter: drop-shadow(0 0 6px var(--primary-glow));
+        }
+
+        .title-bar-drag span {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .title-bar-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .win-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .win-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+        }
+
+        .win-btn.close-btn:hover {
+            background: var(--danger);
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(244, 63, 94, 0.45);
+        }
+
+        .view {
+            position: absolute;
+            top: 44px; left: 0; right: 0; bottom: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s;
+            display: flex;
+            flex-direction: column;
+            background: transparent;
+        }
+
+        #main-view {
+            transform: translateX(0);
+            padding: 35px 30px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title-box h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .title-box p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .icon-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .connection-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .power-btn-wrapper {
+            position: relative;
+            border-radius: 50%;
+            padding: 8px;
+            background: transparent;
+        }
+
+        .power-btn {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: linear-gradient(145deg, #1e2235, #141623);
+            box-shadow: 
+                5px 5px 15px rgba(0,0,0,0.4), 
+                -5px -5px 15px rgba(255,255,255,0.02),
+                inset 0px 0px 0px transparent;
+            position: relative;
+            z-index: 2;
+        }
+
+        .power-btn::after {
+            content: '';
+            position: absolute;
+            top: 2%; left: 15%; right: 15%;
+            height: 35%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
+            border-radius: 50% 50% 20% 20% / 80% 80% 20% 20%;
+            pointer-events: none;
+        }
+
+        .power-btn svg {
+            width: 44px;
+            height: 44px;
+            fill: var(--text-muted);
+            transition: all 0.4s ease;
+        }
+
+        .power-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .power-btn.connected {
+            background: linear-gradient(145deg, #142820, #0d1a15);
+            border-color: rgba(16, 185, 129, 0.3);
+            box-shadow: 
+                0 0 30px rgba(16, 185, 129, 0.2),
+                inset 0 0 20px rgba(16, 185, 129, 0.1);
+            animation: pulse-ring 2s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+        }
+
+        .power-btn.connected svg {
+            fill: var(--success);
+            filter: drop-shadow(0 0 8px var(--success-glow));
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4), inset 0 0 20px rgba(16, 185, 129, 0.1); }
+            70% { box-shadow: 0 0 0 25px rgba(16, 185, 129, 0), inset 0 0 20px rgba(16, 185, 129, 0.1); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), inset 0 0 20px rgba(16, 185, 129, 0.1); }
+        }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .status-text.active {
+            color: var(--success);
+            text-shadow: 0 0 10px var(--success-glow);
+        }
+
+        .metrics-panel {
+            display: none; 
+            margin-top: 15px; 
+            width: 100%; 
+            max-width: 320px; 
+            background: rgba(255,255,255,0.02); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 16px; 
+            padding: 14px; 
+            gap: 12px; 
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            animation: fadeUp 0.4s ease forwards;
+        }
+
+        .metrics-row {
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 11px; 
+            color: var(--text-muted);
+        }
+
+        .footer-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.03);
+            backdrop-filter: blur(10px);
+        }
+
+        .footer-version {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .footer-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .footer-btn:hover {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .dot-indicator {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 6px;
+            height: 6px;
+            background-color: var(--danger);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--danger);
+            animation: pulse-dot 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.3); opacity: 1; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        #settings-view, #logs-view, #about-view, #update-view {
+            background: var(--panel-bg);
+            backdrop-filter: blur(35px) saturate(180%);
+            -webkit-backdrop-filter: blur(35px) saturate(180%);
+            z-index: 10;
+        }
+
+        #settings-view { transform: translateX(100%); }
+        #logs-view { transform: translateX(100%); }
+        #about-view { transform: translateX(-100%); }
+        #update-view { transform: translateX(100%); }
+
+        .app-container.show-settings #main-view { transform: translateX(-40%) scale(0.95); opacity: 0; pointer-events: none;}
+        .app-container.show-settings #settings-view { transform: translateX(0); }
+
+        .app-container.show-logs #main-view { transform: translateX(-40%) scale(0.95); opacity: 0; pointer-events: none;}
+        .app-container.show-logs #logs-view { transform: translateX(0); }
+
+        .app-container.show-about #main-view { transform: translateX(40%) scale(0.95); opacity: 0; pointer-events: none;}
+        .app-container.show-about #about-view { transform: translateX(0); }
+
+        .app-container.show-update #main-view { transform: translateX(-40%) scale(0.95); opacity: 0; pointer-events: none;}
+        .app-container.show-update #update-view { transform: translateX(0); }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            padding: 25px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--glass-border);
+            gap: 15px;
+        }
+
+        .settings-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .settings-content {
+            padding: 25px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .settings-content::-webkit-scrollbar { width: 4px; }
+        .settings-content::-webkit-scrollbar-track { background: transparent; }
+        .settings-content::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.08);
+            border-radius: 10px;
+        }
+
+        .log-terminal {
+            background: rgba(5, 6, 12, 0.8);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            color: #38bdf8;
+            line-height: 1.5;
+            flex-grow: 1;
+            height: 100%;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-terminal::-webkit-scrollbar { width: 4px; }
+        .log-terminal::-webkit-scrollbar-track { background: transparent; }
+        .log-terminal::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        .form-group { margin-bottom: 22px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 14px 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            background: rgba(10, 11, 24, 0.8);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25);
+        }
+
+        .save-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+        }
+
+        .toast {
+            position: absolute;
+            bottom: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 11, 24, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 14px 24px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 100;
+            max-width: 85%;
+            text-align: center;
+            line-height: 1.5;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .toast.show { bottom: 30px; }
+        .toast.error { 
+            background: rgba(220, 38, 38, 0.95);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .toast.success {
+            background: rgba(16, 185, 129, 0.95);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .toast.clickable {
+            cursor: pointer;
+            border-bottom: 2px solid var(--primary);
+        }
+        .toast.clickable:hover { background: rgba(30, 41, 59, 0.95); }
+        
+        .loader-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 30px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Liquid Glass Organic Gradient Blobs -->
+    <div class="ambient-blob blob-indigo"></div>
+    <div class="ambient-blob blob-emerald"></div>
+    <div class="ambient-blob blob-pink"></div>
+
+    <div class="app-container" id="app">
+        
+        <!-- Frameless Header controls -->
+        <div class="title-bar">
+            <div class="title-bar-drag pywebview-drag-region">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span>SNI Spoofing UI</span>
+            </div>
+            <div class="title-bar-controls">
+                <button class="win-btn" onclick="minimizeWindow()" title="Minimize">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+                <button class="win-btn close-btn" onclick="closeWindow()" title="Close">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="main-view" class="view">
+            <div class="header">
+                <div class="title-box">
+                    <h1>SNI Spoofing UI</h1>
+                    <p id="ip-display">Ready to connect</p>
+                </div>
+                <div class="header-actions">
+                    <!-- Live Console Log Panel Button -->
+                    <button class="icon-btn" onclick="toggleLogs()" title="Logs">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="4 17 10 11 4 5"></polyline>
+                            <line x1="12" y1="19" x2="20" y2="19"></line>
+                        </svg>
+                    </button>
+                    <!-- Core Configuration Profiles Button -->
+                    <button class="icon-btn" onclick="toggleSettings()" title="Settings">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="connection-area">
+                <div class="power-btn-wrapper">
+                    <button class="power-btn" id="powerBtn" onclick="toggleConnection()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2C12.5523 2 13 2.44772 13 3V11C13 11.5523 12.5523 12 12 12C11.4477 12 11 11.5523 11 11V3C11 2.44772 11.4477 2 12 2ZM18.364 5.63604C18.7545 5.24552 19.3877 5.24552 19.7782 5.63604C21.7891 7.64696 23 10.3662 23 13C23 19.0751 18.0751 24 12 24C5.92487 24 1 19.0751 1 13C1 10.3662 2.21092 7.64696 4.22183 5.63604C4.61235 5.24552 5.24552 5.24552 5.63604 5.63604C6.02656 6.02656 6.02656 6.65973 5.63604 7.05025C4.00407 8.68222 3 10.7423 3 13C3 17.9706 7.02944 22 12 22C16.9706 22 21 17.9706 21 13C21 10.7423 19.9959 8.68222 18.364 7.05025C17.9734 6.65973 17.9734 6.02656 18.364 5.63604Z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="status-text" id="statusText">Disconnected</div>
+
+                <!-- Web UI Real-Time Connection Metrics Panel -->
+                <div class="metrics-panel" id="metricsPanel">
+                    <div class="metrics-row" style="border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 6px;">
+                        <span>Connected Gateway</span>
+                        <span id="metric-target" style="color: var(--text-main); font-weight: 600;">--</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-around; text-align: center; margin: 4px 0;">
+                        <div>
+                            <div style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Ping</div>
+                            <div id="metric-ping" style="font-size: 13px; font-weight: 700; color: var(--primary); margin-top: 2px;">--</div>
+                        </div>
+                        <div style="border-left: 1px solid rgba(255,255,255,0.05); height: 25px; align-self: center;"></div>
+                        <div>
+                            <div style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Speed</div>
+                            <div id="metric-speed" style="font-size: 13px; font-weight: 700; color: #fff; margin-top: 2px;">0 KB/s</div>
+                        </div>
+                        <div style="border-left: 1px solid rgba(255,255,255,0.05); height: 25px; align-self: center;"></div>
+                        <div>
+                            <div style="font-size: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Volume</div>
+                            <div id="metric-volume" style="font-size: 13px; font-weight: 700; color: var(--success); margin-top: 2px;">0 MB</div>
+                        </div>
+                    </div>
+                    <div class="metrics-row" style="border-top: 1px solid rgba(255,255,255,0.03); padding-top: 6px;">
+                        <span>Session Duration</span>
+                        <span id="metric-duration" style="color: var(--text-main); font-weight: 600;">00:00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Toolbar with About, Current Version & Check Update -->
+            <div class="footer-container">
+                <!-- About Button -->
+                <button class="footer-btn" onclick="toggleAbout()" title="About Application">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <span>About</span>
+                </button>
+
+                <!-- Current Version Display -->
+                <div class="footer-version">v1.0.0</div>
+
+                <!-- Check Updates Button -->
+                <button class="footer-btn" onclick="toggleUpdate()" id="update-footer-btn" title="Check for Updates">
+                    <!-- Notification alert dot -->
+                    <div class="dot-indicator" id="update-dot" style="display: none;"></div>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    <span>Updates</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="view">
+            <div class="settings-header">
+                <button class="icon-btn" onclick="toggleSettings()">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                </button>
+                <h2>Configuration Profile</h2>
+            </div>
+
+            <div class="settings-content">
+                <form id="configForm" onsubmit="saveConfig(event)">
+                    
+                    <div class="form-group">
+                        <label>Listen Address</label>
+                        <input type="text" id="conf-listen" class="form-control" placeholder="127.0.0.1:40443" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Connect Target IP</label>
+                        <input type="text" id="conf-connect" class="form-control" placeholder="188.114.98.0:443" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fake SNI Bypass Host</label>
+                        <input type="text" id="conf-fake-sni" class="form-control" placeholder="auth.vercel.com" required>
+                    </div>
+
+                    <button type="submit" class="save-btn">Save Configuration</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Console Logging Panel View -->
+        <div id="logs-view" class="view">
+            <div class="settings-header">
+                <button class="icon-btn" onclick="toggleLogs()">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                </button>
+                <h2>Live Console Logs</h2>
+                <button class="icon-btn" onclick="clearLiveLogs()" title="Clear logs" style="margin-left: auto;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="settings-content" style="display: flex; flex-direction: column;">
+                <div class="log-terminal" id="log-display">Loading output streams...</div>
+            </div>
+        </div>
+
+        <!-- About Panel View -->
+        <div id="about-view" class="view">
+            <div class="settings-header">
+                <button class="icon-btn" onclick="toggleAbout()">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                </button>
+                <h2>About Application</h2>
+            </div>
+            <div class="settings-content" style="align-items: center; text-align: center; gap: 20px;">
+                <div class="about-logo" style="margin-top: 15px; background: rgba(99, 102, 241, 0.15); border: 1px solid var(--primary); padding: 20px; border-radius: 50%; width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px rgba(99, 102, 241, 0.3);">
+                    <svg viewBox="0 0 24 24" width="45" height="45" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                <div style="margin-top: 5px;">
+                    <h3 style="font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px;">SNI Spoofing UI</h3>
+                    <p style="font-size: 12px; color: var(--text-muted);">SNI-Spoof Secure and easy client</p>
+                </div>
+                <div class="about-card" style="width: 100%; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 14px; padding: 18px; text-align: left; font-size: 13px; line-height: 1.6; color: var(--text-muted); margin-top: 10px;">
+                    This is an easy to use and simplified UI SNI-Spoofing tool to bypass internet restrictions.
+                    This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+                    <br><br>
+                    This program is distributed WITHOUT ANY WARRANTY. 
+                    For details, view the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" style="color: var(--primary);">GPLv3 License</a>.
+                    <br><br>
+                    <a href="https://github.com/GMH84/SNI-Spoofing-UI" target="_blank" style="color: var(--primary);">Git SNI-Spoofing-UI</a>
+                    <br><a href="https://github.com/patterniha/SNI-Spoofing" target="_blank" style="color: var(--primary);">Git SNI-Spoofing</a>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: auto; padding-bottom: 10px; width: 100%;">
+                    <span>Core 1.0.0 | UI 1.0.0</span><br>
+                    <span>2026-05-29</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Check Update Panel View -->
+        <div id="update-view" class="view">
+            <div class="settings-header">
+                <button class="icon-btn" onclick="toggleUpdate()">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                </button>
+                <h2>Check for Updates</h2>
+            </div>
+            <div class="settings-content" style="align-items: center; text-align: center; gap: 24px;">
+                <div class="update-icon-wrapper" id="update-icon-wrapper" style="margin-top: 20px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 20px; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
+                    <svg id="update-status-svg" viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                </div>
+
+                <div style="width: 100%;">
+                    <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.15); border: 1px solid var(--glass-border); padding: 14px; border-radius: 12px; margin-bottom: 20px;">
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Installed</div>
+                            <div style="font-size: 16px; font-weight: 700; color: #fff; margin-top: 4px;">1.0.0</div>
+                        </div>
+                        <div style="border-left: 1px solid var(--glass-border);"></div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 700; color: #fff; margin-top: 4px;" id="latest-ver-text">--</div>
+                        </div>
+                    </div>
+
+                    <div id="update-status-msg" style="font-size: 14px; font-weight: 600; color: var(--text-muted); line-height: 1.5; margin-bottom: 25px;">
+                        Checking server for updates...
+                    </div>
+
+                    <!-- Action buttons for update -->
+                    <div id="update-actions" style="display: none; width: 100%;">
+                        <button class="save-btn" id="update-download-btn" onclick="openDownloadLink()" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Download Update
+                        </button>
+                    </div>
+                    
+                    <button class="save-btn" id="update-retry-btn" onclick="triggerUpdateCheck()" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; box-shadow: none; margin-top: 10px; display: none;">
+                        Check Again
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="toast" class="toast">Message</div>
+    </div>
+
+    <script>
+        let isConnected = false;
+        let statusInterval = null;
+        let logsInterval = null;
+        let latestDownloadUrl = "";
+
+        // Custom frameless window controls
+        function minimizeWindow() {
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.minimize();
+            } else {
+                console.warn("Pywebview API not initialized yet.");
+            }
+        }
+
+        function closeWindow() {
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.close();
+            } else {
+                console.warn("Pywebview API not initialized yet.");
+            }
+        }
+
+        // On Load Setup
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            checkStatus();
+            autoCheckUpdate(); // Check for updates automatically on launch
+            
+            // Start continuous status and logs polling loops
+            statusInterval = setInterval(checkStatus, 1500);
+            logsInterval = setInterval(fetchLogs, 1000);
+        });
+
+        // Toggle Panels safely maintaining viewport exclusion states
+        function toggleSettings() {
+            const app = document.getElementById('app');
+            app.classList.remove('show-logs', 'show-about', 'show-update');
+            app.classList.toggle('show-settings');
+        }
+
+        function toggleLogs() {
+            const app = document.getElementById('app');
+            app.classList.remove('show-settings', 'show-about', 'show-update');
+            app.classList.toggle('show-logs');
+        }
+
+        function toggleAbout() {
+            const app = document.getElementById('app');
+            app.classList.remove('show-settings', 'show-logs', 'show-update');
+            app.classList.toggle('show-about');
+        }
+
+        function toggleUpdate() {
+            const app = document.getElementById('app');
+            app.classList.remove('show-settings', 'show-logs', 'show-about');
+            app.classList.toggle('show-update');
+            if (app.classList.contains('show-update')) {
+                triggerUpdateCheck();
+            }
+        }
+
+        // Poll Logs from Python circular log queue
+        async function fetchLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                if (response.ok) {
+                    const data = await response.json();
+                    renderLogs(data.logs);
+                }
+            } catch(e) {
+                console.error("Error getting live output logs: ", e);
+            }
+        }
+
+        // Render live logs and lock scrollbar down
+        function renderLogs(logs) {
+            const container = document.getElementById('log-display');
+            if(!logs || logs.length === 0) {
+                container.textContent = "Console is empty. Start connection to view active logs.";
+                return;
+            }
+            container.textContent = logs.join('\n');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Clear live log buffers
+        async function clearLiveLogs() {
+            try {
+                await fetch('/api/logs/clear', { method: 'POST' });
+                fetchLogs();
+            } catch(e) {
+                console.error("Clear logs request error: ", e);
+            }
+        }
+
+        // Check for updates on startup silently
+        async function autoCheckUpdate() {
+            try {
+                const response = await fetch('/api/check_update');
+                const data = await response.json();
+                if (data.status === 'success' && data.update_available) {
+                    document.getElementById('update-dot').style.display = 'block';
+                    showToast('Update Available! Click here to download.', 'info', 6000, () => {
+                        toggleUpdate();
+                    });
+                }
+            } catch(e) {
+                console.error("Silent startup update check failed: ", e);
+            }
+        }
+
+        // Check for updates explicitly inside view panel
+        async function triggerUpdateCheck() {
+            const iconWrapper = document.getElementById('update-icon-wrapper');
+            const statusSvg = document.getElementById('update-status-svg');
+            const statusMsg = document.getElementById('update-status-msg');
+            const latestVerText = document.getElementById('latest-ver-text');
+            const downloadBtn = document.getElementById('update-download-btn');
+            const retryBtn = document.getElementById('update-retry-btn');
+            const actionsDiv = document.getElementById('update-actions');
+            const footerDot = document.getElementById('update-dot');
+
+            // Reset view properties to loading/checking states
+            iconWrapper.style.background = 'rgba(255,255,255,0.03)';
+            iconWrapper.style.borderColor = 'var(--glass-border)';
+            statusSvg.style.color = 'var(--text-muted)';
+            statusSvg.style.animation = 'spin 2s infinite linear';
+            statusMsg.textContent = "Checking server for updates...";
+            latestVerText.textContent = "--";
+            actionsDiv.style.display = 'none';
+            retryBtn.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/check_update');
+                const data = await response.json();
+                
+                statusSvg.style.animation = 'none';
+
+                if (data.status === 'success') {
+                    latestVerText.textContent = data.latest_version;
+                    latestDownloadUrl = data.download_url;
+
+                    if (data.update_available) {
+                        iconWrapper.style.background = 'rgba(244, 63, 94, 0.1)';
+                        iconWrapper.style.borderColor = 'var(--danger)';
+                        statusSvg.style.color = 'var(--danger)';
+                        statusMsg.innerHTML = `<span style="color:var(--danger); font-weight:700;">Update Available!</span><br>Version ${data.latest_version} is now available. Please download the latest version.`;
+                        actionsDiv.style.display = 'block';
+                        footerDot.style.display = 'block';
+                    } else {
+                        iconWrapper.style.background = 'rgba(16, 185, 129, 0.1)';
+                        iconWrapper.style.borderColor = 'var(--success)';
+                        statusSvg.style.color = 'var(--success)';
+                        statusMsg.innerHTML = `<span style="color:var(--success); font-weight:700;">Up to Date!</span><br>You are currently running the latest version.`;
+                        footerDot.style.display = 'none';
+                    }
+                } else {
+                    statusMsg.textContent = "Failed to query version profile: " + data.message;
+                    retryBtn.style.display = 'block';
+                }
+            } catch (e) {
+                statusSvg.style.animation = 'none';
+                statusMsg.textContent = "Error querying update server.";
+                retryBtn.style.display = 'block';
+            }
+        }
+
+        // Safely opens the download link using Python's native system browser open API
+        function openDownloadLink() {
+            if (latestDownloadUrl) {
+                fetch('/api/open_browser?url=' + encodeURIComponent(latestDownloadUrl), { method: 'POST' });
+            }
+        }
+
+        // Generic Copy Function
+        async function copyToClipboard(text, successMessage) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "absolute";
+                    textArea.style.left = "-999999px";
+                    document.body.prepend(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                    } catch (err) {
+                        console.error('Fallback copy failed', err);
+                    } finally {
+                        textArea.remove();
+                    }
+                }
+                showToast(successMessage, 'success');
+            } catch (error) {
+                console.error("Error copying:", error);
+                showToast('Failed to copy', 'error');
+            }
+        }
+
+        let toastTimeout = null;
+
+        // Show Toast with Optional Click Action
+        function showToast(message, type = 'info', duration = 3000, onClickAction = null) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            
+            toast.classList.remove('error', 'success', 'clickable');
+            if (type === 'error') toast.classList.add('error');
+            if (type === 'success') toast.classList.add('success');
+            
+            toast.onclick = null;
+            if (onClickAction) {
+                toast.classList.add('clickable');
+                toast.onclick = () => {
+                    onClickAction();
+                    toast.classList.remove('show'); 
+                };
+            }
+
+            toast.classList.add('show');
+            
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // Load Config from Backend
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                document.getElementById('conf-listen').value = config['listen'] || '';
+                document.getElementById('conf-connect').value = config['connect'] || '';
+                document.getElementById('conf-fake-sni').value = config['fake-sni'] || '';
+                
+                document.getElementById('ip-display').textContent = `Target: ${config['connect']}`;
+
+            } catch (error) {
+                console.error("Error loading config:", error);
+            }
+        }
+
+        // Save Config to Backend
+        async function saveConfig(e) {
+            e.preventDefault();
+            
+            const config = {
+                "listen": document.getElementById('conf-listen').value,
+                "connect": document.getElementById('conf-connect').value,
+                "fake-sni": document.getElementById('conf-fake-sni').value
+            };
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showToast('Configuration Saved!', 'success');
+                    document.getElementById('ip-display').textContent = `Target: ${config['connect']}`;
+                    toggleSettings();
+                } else {
+                    showToast('Failed to save config', 'error');
+                }
+            } catch (error) {
+                showToast('Server error', 'error');
+            }
+        }
+
+        // Check if process is running
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                setUIState(data.running, data.metrics);
+            } catch (error) {
+                setUIState(false);
+            }
+        }
+
+        // Update UI based on running state
+        function setUIState(running, metrics = null) {
+            isConnected = running;
+            const btn = document.getElementById('powerBtn');
+            const text = document.getElementById('statusText');
+            const metricsPanel = document.getElementById('metricsPanel');
+            
+            if (running) {
+                btn.classList.add('connected');
+                text.textContent = 'Connected';
+                text.classList.add('active');
+                metricsPanel.style.display = 'flex';
+                
+                if (metrics) {
+                    document.getElementById('metric-target').textContent = metrics.target || '--';
+                    document.getElementById('metric-ping').textContent = metrics.ping !== 'N/A' ? `${metrics.ping} ms` : '--';
+                    document.getElementById('metric-speed').textContent = metrics.speed || '0 KB/s';
+                    document.getElementById('metric-volume').textContent = metrics.volume || '0 MB';
+                    document.getElementById('metric-duration').textContent = metrics.duration || '00:00:00';
+                }
+            } else {
+                btn.classList.remove('connected');
+                text.textContent = 'Disconnected';
+                text.classList.remove('active');
+                metricsPanel.style.display = 'none';
+            }
+        }
+
+        // Handle Connect/Disconnect
+        async function toggleConnection() {
+            const endpoint = isConnected ? '/api/stop' : '/api/start';
+            
+            document.getElementById('statusText').textContent = isConnected ? 'Disconnecting...' : 'Connecting...';
+            
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    const willConnect = !isConnected;
+                    setUIState(willConnect);
+                    
+                    if (willConnect) {
+                        showToast('Connected!', 'success', 4000);
+                    } else {
+                        showToast('Disconnected', 'info');
+                    }
+                } else {
+                    showToast(result.message || 'Error occurred', 'error');
+                    checkStatus(); 
+                }
+            } catch (error) {
+                showToast('Failed to communicate with local server', 'error');
+                checkStatus();
+            }
+        }
+    </script>
+</body>
