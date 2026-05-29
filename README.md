@@ -43,14 +43,14 @@ Since this application interacts directly with the Windows kernel-level network 
 
 To run the application with the terminal console visible:
 ```bash
-python allinone.py
+python main.py
 ```
 
 To run the application entirely in the background (suppressing the black CMD window while still automatically popping open your browser/GUI):
 ```bash
-pythonw allinone.py
+pythonw main.py
 ```
-*(Alternatively, you can rename `allinone.py` to `allinone.pyw` to run it silently by default on double-click).*
+*(Alternatively, you can rename `main.py` to `main.pyw` to run it silently by default on double-click).*
 
 ---
 
@@ -65,9 +65,9 @@ You can compile the entire application, including the embedded assets, into a si
 
 2. Compile the project (making sure to bundle the HTML asset):
    ```bash
-   pyinstaller --noconfirm --onedir --windowed --add-data "index.html;." allinone.py
+   pyinstaller --noconfirm --onedir --windowed --add-data "index.html;." main.py
    ```
-   *Your built executable will be generated inside the `dist/allinone/` folder.*
+   *Your built executable will be generated inside the `dist/main/` folder.*
 
 ---
 
