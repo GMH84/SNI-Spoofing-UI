@@ -30,7 +30,7 @@ jobs:
 
       - name: Build Standalone Executable with PyInstaller
         run: |
-          pyinstaller --noconfirm --onefile --windowed --uac-admin --add-data "index.html;." --name "SNI-Spoofing-UI-${{ matrix.architecture }}" allinone.py
+          pyinstaller --noconfirm --onefile --windowed --uac-admin --add-data "index.html;." --name "SNI-Spoofing-UI-${{ matrix.architecture }}" main.py
 
       - name: Upload Binary Assets to GitHub Release
         uses: softprops/action-gh-release@v2
